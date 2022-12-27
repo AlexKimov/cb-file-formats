@@ -1,0 +1,1 @@
+F:\git\qbms\quickbms.exe -K -d -e -Y -F "*.pkx" unpack_pkx.bms "F:\git\cb\data" unpacked

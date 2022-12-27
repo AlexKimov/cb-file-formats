@@ -1,0 +1,58 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+
+local uint i;
+
+BigEndian(); 
+
+// packfile.h
+struct {
+  CHAR Magic[8];
+  CHAR Version[4];
+  UINT FileNumber;
+  UINT Count;
+  UINT entryMask;
+} HEADER;
+
+struct {
+  UINT Entry[HEADER.Count];
+} ELEMENT;
+
+typedef struct {
+  UINT FilenameOffset;
+  UINT Hash;
+  UINT Len;
+  UINT FileOffset;
+  UINT FileSizeUnpacked;
+  UINT FileSizePacked;
+  UINT Unknown;
+} FILE_REC;
+
+FILE_REC FileRec[HEADER.FileNumber];
+
+struct {
+  struct {
+    string FileName;
+  } NAME[HEADER.FileNumber] <optimize=false>;
+} NAMES;
+
+typedef struct {
+  BYTE Data[FileRec[i].FileSizePacked];
+} FILE;
+
+struct {
+  for (i = 0; i < HEADER.FileNumber; ++i)
+  {
+    FILE File;
+  }
+} FILES;

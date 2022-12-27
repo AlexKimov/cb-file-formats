@@ -1,0 +1,86 @@
+//------------------------------------------------
+//--- 010 Editor v8.0.1 Script File
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+//   History: 
+//------------------------------------------------
+
+
+BigEndian();
+
+local uint sizeUnpacked = 9784;
+local uint sizePacked = 3327;
+
+local uint i, count, offset, outBufferPos, pos, len, kk;
+local ubyte b, b2, b3, b4, b5;
+
+local ubyte outBuffer[sizeUnpacked];
+do
+{
+  b = ReadUByte(FTell()); 
+
+  if(b)
+  {
+	if ((b & 0xf0) == 0)
+	{		
+	  count = (b & 0xf); 
+      FSkip(1);    
+ 			
+      //Printf("%d ", count);
+      len = count;
+	  do
+      { 
+        outBuffer[outBufferPos] = ReadUByte(FTell());
+        FSkip(1); 
+        outBufferPos += 1;         
+        len -= 1;
+      } while (len);
+
+      continue;
+	} else
+    {	     
+      b2 = ReadUByte(FTell() +  1);     	
+	  count = ((b & 0xf0) >> 4) + 1;
+
+      kk =  (kk | b2) << 24;
+	  offset = (b & 0x0f) | (kk << 4);
+
+      Printf("%d %d %x %x %d\n", count, offset, b, kk, FTell());  
+      FSkip(2);
+	}
+  } else
+  {	
+    Printf("--");
+    b2 = ReadUByte(FTell());  
+    b3 = ReadUByte(FTell() +  1);
+    b4 = ReadUByte(FTell() +  2);  
+    b5 = ReadUByte(FTell() +  3);
+      
+	count = (b2 | ((b3 & 0x0f) << 8)) + 6;
+	offset = (b3 >> 4) & 0x0f;
+	offset |= b4 << 4;
+	offset |= b5 << 12;
+
+	FSkip(4);
+  }
+
+  //Printf("%d", outBufferPos);
+  pos = outBufferPos - 1 - offset;
+  len = count;
+  do {
+    outBuffer[outBufferPos] = outBuffer[pos];
+    outBufferPos += 1;
+    pos += 1;
+    len -= 1;
+  } while(len);
+
+
+} while (FTell() < sizePacked);
+
+
+//FileNew();
+//WriteBytes();

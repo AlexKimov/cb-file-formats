@@ -1,0 +1,174 @@
+//------------------------------------------------
+//--- 010 Editor v8.0.1 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+
+LittleEndian();
+
+//Formats
+typedef enum <uint>
+{
+  Unknown = 0,
+  D3DFMT_A8R8G8B8,
+  D3DFMT_X8R8G8B8,
+  D3DFMT_R5G6B5,
+  D3DFMT_A1R5G5B5,
+  D3DFMT_A4R4G4B4,	
+  D3DFMT_A8P8,
+  D3DFMT_P8,
+  D3DFMT_L8,	
+  D3DFMT_DXT1,
+  D3DFMT_DXT3,
+  D3DFMT_DXT5,
+  MAX,
+} TXX_FORMAT;
+
+//Types
+typedef enum <uint>
+{
+  txxt_unknown = 0,
+  txxt_2d, 
+  txxt_cube,
+  txxt_volume, 
+  txxt_rendertarget
+} TXX_Type;
+
+struct {
+  CHAR Magic[4];
+  CHAR Version[4];
+  TXX_Type Type;
+  TXX_FORMAT Format;
+  UINT Width;
+  UINT Height;
+  UINT Depth; // mip depth (2D, Cubemap == 1)
+  UINT NumMips; // mip number
+  UINT LineSize; // (width*bpp/8)
+  UINT BPP; // bit per pixel
+  UINT FPS; // 
+} HEADER;
+
+typedef struct {  
+  switch (HEADER.Format)
+  { 
+    case 1: // A8R8G8B8
+      ubyte Red   <name="Red">;
+      ubyte Green <name="Green">;
+      ubyte Blue  <name="Blue">; 
+      ubyte Alpha <name="Alpha">; 
+    break;
+    case 2: // X8R8G8B8
+      ubyte Red   <name="Red">;
+      ubyte Green <name="Green">;
+      ubyte Blue  <name="Blue">; 
+      ubyte X <name="X">; 
+    break;
+    case 3: // R5G6B5
+      ubyte Red   : 5 <name="Red">;
+      ubyte Green : 6 <name="Green">;
+      ubyte Blue  : 5 <name="Blue">; 
+    break;
+    case 4:
+      ubyte Red   : 1 <name="Red">;
+      ubyte Green : 5 <name="Green">;
+      ubyte Blue  : 5 <name="Blue">;
+      ubyte Alpha : 5 <name="Alpha">; 
+    case 5:
+      ubyte Red   : 4 <name="Red">;
+      ubyte Green : 4 <name="Green">;
+      ubyte Blue  : 4 <name="Blue">;
+      ubyte Alpha : 4 <name="Alpha">; 
+  }
+} PIXEL <name="Pixel", size=sizePixel>;
+
+typedef struct {  
+    if (HEADER.Format != 9) 
+    {
+      struct {
+        if (HEADER.IMAGE_TYPE.DXT != 11) {
+          for (locals.i = 0; locals.i < 16; ++locals.i) {
+            ubyte AlphaIndex : 4 <name="Alpha Index">; 
+          }
+        }
+        else {
+           ubyte Alpha1;
+           ubyte Alpha2; 
+           for (locals.i = 0; locals.i < 16; ++locals.i) {
+            ubyte AlphaIndex : 3 <name="Alpha Index">; 
+          } 
+        }            
+      } AlphaChannel <name="Alpha Channel Data">;
+    };
+    
+    struct {
+      struct {
+        ubyte Red : 5 <name="Red">; 
+        ubyte Green   : 6 <name="Green">;
+        ubyte Blue : 5 <name="Blue">; 
+      } Color1;     
+      struct {
+        ubyte Red : 5 <name="Red">; 
+        ubyte Green   : 6 <name="Green">;
+        ubyte Blue : 5 <name="Blue">; 
+      } Color2;  
+      struct {
+        for (locals.i = 0; locals.i < 16; ++locals.i)
+          ubyte PixelIndex : 2 <name="Pixel Index">; 
+      } INDEX_TABLE;
+    } COLOR_DATA <name="Color Data">;
+} TEXEL <name="Pixel", size=sizeTEXEL>;
+
+int sizeTEXEL( TEXEL &texel )
+{
+  if (HEADER.Format != 9)
+    return 16;
+  else
+    return 8;
+};
+
+int sizePixel( PIXEL &pixel )
+{
+  if (HEADER.Format == 10 || HEADER.Format == 11)
+    return 4;
+  else
+    return 2;
+};
+
+typedef struct (int arraySize) {
+  PIXEL array[arraySize] <optimize=false>;
+} PIXEL_ARRAY;
+
+typedef struct (int arraySize) {
+  TEXEL array[arraySize] <optimize=false>;
+} TEXEL_ARRAY;
+
+if (HEADER.Format <= 9)
+  PIXEL_ARRAY Pixels(HEADER.Width*HEADER.Height) <name="Pixel Array">;
+else
+  TEXEL_ARRAY Pixels(HEADER.Width*HEADER.Height/16) <name="Pixel Array (DXT compression)">;
+
+local uint h, w;
+
+typedef struct {
+  h = HEADER.Height, w = HEADER.Width;
+  while (1)
+  {
+    h = h/2.0; 
+    w = w/2.0;
+    if (HEADER.Format == 21)
+      PIXEL_ARRAY MipMaps(h*w) <name="MipMap">; 
+    else
+      TEXEL_ARRAY MipMaps(h*w) <name="MipMap">; 
+    if (h == 1) break;
+  };
+} MIP_MAPS <name="MipMaps">;
+
+if (HEADER.NumMips > 1)
+  MIP_MAPS MipMaps;

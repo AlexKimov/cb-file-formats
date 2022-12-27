@@ -1,0 +1,144 @@
+endian big
+
+IDString "StormPkx"
+GetDString VERSION 4 # "2.10"
+
+Get FCOUNT long
+Get ALIGNS long
+
+XMath TOFFSET "((ALIGNS + 1) * 4) + 20"
+    
+For i = 0 < FCOUNT
+    XMath OFS "i*28 + TOFFSET"
+	GoTo OFS
+	
+	Get NAME_OFFSET long
+	Get HASH long
+	Get NAME_SIZE long
+	Get FOFFSET long
+	Get FSIZE_UNCOMPRESSED long
+	Get FSIZE_COMPRESSED long
+	Get UNKNOWN long
+	
+	GoTo NAME_OFFSET
+	GetDString FNAME NAME_SIZE
+    
+	CallFunction EXTRACT FNAME FOFFSET FSIZE_COMPRESSED FSIZE_UNCOMPRESSED
+NEXT i
+
+startfunction EXTRACT FNAME FOFFSET FSIZE_COMPRESSED FSIZE_UNCOMPRESSED 
+    GoTo FOFFSET
+   
+    # some vars
+    Set CURRENT_POS long 0 # current position in input buffer
+    Set CURRENT_POS2 long 0 # current position in outnput buffer
+
+    # set buffers
+    log MEMORY_FILE FOFFSET FSIZE_COMPRESSED  # set input buffer
+    log MEMORY_FILE2 0 0  # set output buffer   
+  
+    do
+        GetVarChr B MEMORY_FILE CURRENT_POS byte
+        Math CURRENT_POS += 1
+        XMath CODE "B & 0xf0"
+        
+        if CODE == 0 # raw data
+            XMath LENGTH "(B & 0x0f) + 1"
+            Math MAX_LENGTH = 16
+            do
+                XMATh POS "CURRENT_POS + LENGTH"
+                if POS > FSIZE_COMPRESSED
+                    CleanExit
+                endif
+                
+                for i = 0 < LENGTH
+                    GetVarChr tmp MEMORY_FILE CURRENT_POS byte                    
+                    PutVarChr MEMORY_FILE2 CURRENT_POS2 tmp byte
+                    Math CURRENT_POS += 1
+                    Math CURRENT_POS2 += 1
+                next i
+                
+                if LENGTH != MAX_LENGTH
+                    Break
+                elif LENGTH == MAX_LENGTH
+                   GetVarChr tmp MEMORY_FILE CURRENT_POS byte 
+                   Math CURRENT_POS += 1
+                   Math LENGTH = tmp
+                   Math MAX_LENGTH = 255;
+                endif 
+                
+            while 0 == 0
+         
+        elif CODE != 0 # compressed data
+            Set DISTANCE long 0 # distance to bytes in output buffer
+            Set LENGTH long 0 # number of bytes in output buffer  
+            
+            
+            if CODE != 0x10 # short sequence of bytes
+                if CURRENT_POS > FSIZE_COMPRESSED
+                    CleanExit
+                endif
+                
+                GetVarChr tmp MEMORY_FILE CURRENT_POS byte  
+                XMath DISTANCE "(((B & 0x0f) << 8) | tmp) + 1" 
+                XMath LENGTH "(B >> 4)"
+                Math CURRENT_POS += 1   
+
+                if LENGTH == 15
+                    do
+                        GetVarChr tmp MEMORY_FILE CURRENT_POS byte 
+                        Math CURRENT_POS += 1
+                        Math LENGTH += tmp
+                        if tmp != 255
+                            Break
+                        endif 
+                    while 0 == 0
+                endif                
+               
+            elif CODE == 0x10 # extended sequence of bytes
+                if CURRENT_POS > FSIZE_COMPRESSED
+                    CleanExit
+                endif 
+                
+                XMath DISTANCE "DISTANCE | (B & 0x03) << 16"
+                Set N long 0
+                Math N = CURRENT_POS                
+                GetVarChr tmp MEMORY_FILE N byte               
+                XMath DISTANCE "DISTANCE | (tmp << 8)"
+                XMath N "CURRENT_POS + 1"                
+                GetVarChr tmp MEMORY_FILE N byte                
+                XMath DISTANCE "DISTANCE | (tmp << 0)"                  
+                Math DISTANCE += 0x1000;                    
+                Math CURRENT_POS += 2              
+                XMath LENGTH "((B & 0x0c) >> 2) + 3"
+                 
+                if LENGTH == 6
+                    do
+                        GetVarChr tmp MEMORY_FILE CURRENT_POS byte 
+                        Math CURRENT_POS += 1
+                        Math LENGTH += tmp
+                        if tmp != 255
+                            Break
+                        endif 
+                    while 0 == 0
+                endif                    
+            endif
+            
+            if CURRENT_POS > FSIZE_COMPRESSED
+                CleanExit
+            endif
+
+                
+            # 
+            XMath POS "CURRENT_POS2 - DISTANCE"           
+            for i = 0 < LENGTH
+                GetVarChr tmp MEMORY_FILE2 POS byte       
+                PutVarChr MEMORY_FILE2 CURRENT_POS2 tmp byte
+                Math POS += 1
+                Math CURRENT_POS2 += 1
+            next i                       
+        endif    
+    while CURRENT_POS < FSIZE_COMPRESSED
+
+    log FNAME 0 FSIZE_UNCOMPRESSED MEMORY_FILE2   
+endfunction 
