@@ -1,8 +1,4 @@
 from inc_noesis import *
-import noewin
-from sd.tx.tx_format import *
-from sd.tx.consts import *
-
 
 def registerNoesisTypes():
     handle = noesis.register("Captain Blood Textures", ".txx")
